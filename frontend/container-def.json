@@ -1,0 +1,1 @@
+[{"name":"frontend-container","image":"007066145257.dkr.ecr.ap-south-1.amazonaws.com/rexpress-frontend:latest","portMappings":[{"containerPort":80,"protocol":"tcp"}],"essential":true,"logConfiguration":{"logDriver":"awslogs","options":{"awslogs-group":"/ecs/rexpress-frontend","awslogs-region":"ap-south-1","awslogs-stream-prefix":"ecs"}}}]
