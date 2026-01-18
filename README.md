@@ -639,11 +639,8 @@ aws logs delete-log-group --log-group-name /ecs/rexpress-frontend --region ap-so
 
 ---
 
-## 🚀 What's Next?
 
-Congratulations! Your app is deployed and secured. But there's more you can do:
-
-### 1. **Custom Domain & HTTPS**
+## 🎉 Custom Domain & HTTPS
 
 Replace the ugly ALB DNS with a real domain:
 
@@ -652,16 +649,106 @@ Current: http://rexpress-frontend-alb-123456.ap-south-1.elb.amazonaws.com
 Desired: https://myapp.com
 ```
 
+#### Option 1: Using Free Domain with CNAME (⭐ Our Approach)
+
+This approach works with free domain providers (Freenom, freedomain.one, etc.) and doesn't require Route53.
+
+**Important**: ALB DNS cannot be added as an apex (root @) domain using CNAME. You **must use a subdomain prefix** like `www.`
+
 **Steps**:
-- Register a domain (Route53 or external registrar)
-- Create an SSL/TLS certificate (AWS Certificate Manager)
+
+1. **Register a Free Domain**
+   - Go to [freedomain.one](https://freedomain.one/) (or Freenom.com, etc.)
+   - Register a free domain (e.g., `myapp.tk`,`myapp.publicvm.com`,`myapp.work.gd` `myapp.ml`)
+   - Note down your domain name
+
+2. **Create an SSL/TLS Certificate (AWS Certificate Manager)**
+   ```bash
+   # Open AWS Console → Certificate Manager → Request Certificate
+   # - Certificate Type: Public
+   # - Domain Names:
+   #   - www.myapp.tk (⭐ must include www prefix)
+   #   - myapp.tk (optional, for redirect)
+   # - Validation Method: DNS (easier) or Email
+   # - Click "Request"
+   # 
+   # For DNS validation:
+   # - Copy the CNAME record provided
+   # - Add it to your domain provider's DNS settings (freedomain.one)
+   # - Wait for validation (usually 5-15 minutes)
+   ```
+
+3. **Update Frontend ALB to HTTPS**
+   ```bash
+   # AWS Console → EC2 → Load Balancers → Select Frontend ALB
+   # 
+   # Add HTTPS Listener:
+   # - Protocol: HTTPS (port 443)
+   # - Certificate: Select the cert you created in step 2
+   # - Forward to: Target group (rexpress-frontend-tg)
+   #
+   # Modify HTTP Listener:
+   # - Protocol: HTTP (port 80)
+   # - Action: Redirect to HTTPS (port 443)
+   ```
+
+4. **Add CNAME Record to Your Domain**
+   - Go to freedomain.one (or your domain provider)
+   - Navigate to Manage Domain → DNS Settings
+   - Add CNAME Record:
+     ```
+     Subdomain/Name: www (⭐ This is critical!)
+     Type: CNAME or Alias
+     TTL: 3600
+     Target/Value: rexpress-frontend-alb-123456.ap-south-1.elb.amazonaws.com
+     ```
+   - **Why www?** Apex domain (@) cannot use CNAME records pointing to ALB DNS
+
+5. **Wait for DNS Propagation**
+   ```bash
+   # Check if DNS is pointing correctly (may take up to 24 hours)
+   nslookup www.myapp.tk
+   # Should return: ALB IP address
+   ```
+
+6. **Test HTTPS**
+   ```bash
+   # Open browser: https://www.myapp.tk
+   # Should work with a secure lock icon ✓
+   ```
+
+7. **(Optional) Redirect Root Domain to www**
+   - If you want `https://myapp.tk` to redirect to `https://www.myapp.tk`
+   - Some DNS providers offer URL redirect/forwarding
+   - Or add an A record redirect in your ALB if supported
+
+#### Option 2: Using AWS Route53 (Traditional)
+
+If you want to use Route53 instead:
+
+**Steps**:
+- Register domain in Route53 (AWS Console → Route53 → Registered Domains)
+- Create SSL/TLS certificate (AWS Certificate Manager)
 - Update ALB listeners to use HTTPS (port 443)
 - Add Route53 A record pointing to ALB
 - Redirect HTTP → HTTPS
 
 ---
 
-### 2. **CI/CD Pipeline (GitHub Actions)**
+#### Summary: Which Option to Choose?
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Free Domain + CNAME** | Free, simple, no AWS fees | Free domain expires yearly, limited DNS features |
+| **Route53** | Professional, managed DNS, easy setup | Costs money (~$0.50/month) |
+
+**Recommendation**: Use **Option 1 (Free Domain + CNAME)** for learning/testing! 🚀
+
+---
+
+## 🚀 What's Next?
+
+### 1. **CI/CD Pipeline (GitHub Actions)**
 
 Automate deployment when you push code:
 
@@ -678,7 +765,7 @@ Push to GitHub → GitHub Actions runs:
 
 ---
 
-### 3. **Enhanced Security**
+### 2. **Enhanced Security**
 
 - **Private Backend ALB**: Run backend ALB in private subnets only
 - **IAM Roles**: Don't use AWS access keys; use roles instead
@@ -689,7 +776,7 @@ Push to GitHub → GitHub Actions runs:
 
 ---
 
-### 4. **Monitoring & Alerts**
+### 3. **Monitoring & Alerts**
 
 - **CloudWatch Dashboards**: Monitor CPU, memory, request count
 - **Alarms**: Get notified if something goes wrong
@@ -697,7 +784,7 @@ Push to GitHub → GitHub Actions runs:
 
 ---
 
-### 5. **Scaling & Performance**
+### 4. **Scaling & Performance**
 
 - **Auto Scaling**: Automatically scale tasks when traffic increases
 - **Caching**: Add Redis for faster data access
