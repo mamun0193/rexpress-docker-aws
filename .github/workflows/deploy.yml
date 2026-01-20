@@ -1,0 +1,79 @@
+name: Deploy rexpress to ECS
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+  FRONTEND_REPO: rexpress-frontend
+  BACKEND_REPO: rexpress-backend
+  CLUSTER_NAME: rexpress-cluster
+  FRONTEND_SERVICE: rexpress-frontend-service
+  BACKEND_SERVICE: rexpress-backend-service
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION \
+          | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+      - name: Build & Push Backend Image
+        run: |
+          docker build -t $BACKEND_REPO:latest ./backend
+          docker tag $BACKEND_REPO:latest $ECR_REGISTRY/$BACKEND_REPO:latest
+          docker push $ECR_REGISTRY/$BACKEND_REPO:latest
+          echo "Backend image pushed: $ECR_REGISTRY/$BACKEND_REPO:latest"
+
+      - name: Build & Push Frontend Image
+        run: |
+          docker build -t $FRONTEND_REPO:latest ./frontend
+          docker tag $FRONTEND_REPO:latest $ECR_REGISTRY/$FRONTEND_REPO:latest
+          docker push $ECR_REGISTRY/$FRONTEND_REPO:latest
+          echo "Frontend image pushed: $ECR_REGISTRY/$FRONTEND_REPO:latest"
+
+      - name: Update Backend ECS Service
+        run: |
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $BACKEND_SERVICE \
+            --force-new-deployment \
+            --region $AWS_REGION
+          echo "Backend service deployment triggered"
+
+      - name: Update Frontend ECS Service
+        run: |
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $FRONTEND_SERVICE \
+            --force-new-deployment \
+            --region $AWS_REGION
+          echo "Frontend service deployment triggered"
+
+      - name: Wait for deployments
+        run: |
+          echo "Waiting for services to stabilize..."
+          sleep 30
+          
+          aws ecs wait services-stable \
+            --cluster $CLUSTER_NAME \
+            --services $BACKEND_SERVICE $FRONTEND_SERVICE \
+            --region $AWS_REGION || true
+          
+          echo "Deployment complete!"

@@ -746,22 +746,106 @@ If you want to use Route53 instead:
 
 ---
 
+## 🚀 CI/CD Pipeline (GitHub Actions) - IMPLEMENTED ✅
+
+### Automated Deployment On Every Push
+
+Your rexpress project now has **GitHub Actions CI/CD** configured!
+
+#### 🔄 How It Works
+
+```
+git push main
+     ↓
+GitHub Actions triggered
+     ↓
+Docker builds Backend + Frontend
+     ↓
+Images pushed to ECR
+     ↓
+ECS services updated with rolling deployment
+     ↓
+✅ Live site updated (zero manual work!)
+```
+
+#### 📋 Setup Steps (One Time)
+
+1. **Create IAM User** (in AWS Console)
+   - User name: `github-cicd`
+   - Attach policies: `AmazonECS_FullAccess`, `AmazonEC2ContainerRegistryFullAccess`
+   - Generate Access Keys
+
+2. **Add GitHub Secrets** (in your repo)
+   - Go to: **Settings → Secrets and variables → Actions**
+   - Add 4 secrets:
+     - `AWS_ACCESS_KEY_ID` → your access key
+     - `AWS_SECRET_ACCESS_KEY` → your secret key
+     - `AWS_REGION` → `ap-south-1`
+     - `AWS_ACCOUNT_ID` → `007066145257`
+
+3. **Workflow File Already Created**
+   - Located at: `.github/workflows/deploy.yml`
+   - Handles all Docker builds and ECS updates
+
+#### 🚀 Using CI/CD
+
+Every time you push to `main`:
+
+```bash
+git add .
+git commit -m "your changes"
+git push origin main
+```
+
+Then:
+- ✅ GitHub Actions automatically builds Docker images
+- ✅ Images pushed to ECR with `latest` tag
+- ✅ Both frontend and backend services updated
+- ✅ Rolling deployment (zero downtime)
+- ✅ Watch progress in GitHub **Actions** tab
+
+#### ⏱️ Expected Timeline
+
+- **Build + Push**: 1-2 minutes
+- **ECS Deployment**: 1-3 minutes
+- **Total**: 2-5 minutes from push to live
+
+#### 📊 Monitor Deployments
+
+1. **GitHub**: `Actions → Deploy rexpress to ECS`
+2. **AWS Console**: `ECS → Clusters → rexpress-cluster → Services`
+3. **CloudWatch**: `/ecs/rexpress-frontend` and `/ecs/rexpress-backend` logs
+
+#### 🔍 Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| GitHub Actions fails at ECR login | Check AWS_REGION, AWS_ACCOUNT_ID secrets |
+| ECS service doesn't update | Verify service names in workflow match AWS |
+| App doesn't change after push | Wait 2-3 minutes, force browser refresh |
+| Pipeline hangs at deployment | Check CloudWatch logs for errors |
+
+#### 📁 Workflow Configuration
+
+**File**: `.github/workflows/deploy.yml`
+
+**Services Updated**:
+- `rexpress-frontend-service`
+- `rexpress-backend-service`
+
+**ECR Repositories**:
+- `rexpress-frontend`
+- `rexpress-backend`
+
+---
+
 ## 🚀 What's Next?
 
-### 1. **CI/CD Pipeline (GitHub Actions)**
+### 1. **Improved CI/CD Pipeline**
 
-Automate deployment when you push code:
-
-```
-Push to GitHub → GitHub Actions runs:
-  1. Runs tests
-  2. Builds Docker images
-  3. Pushes to ECR
-  4. Updates ECS service
-  5. Deploys automatically
-```
-
-**Benefit**: No more manual Docker builds and pushes!
+- Add image tagging with commit SHA for better rollback
+- Implement semantic versioning
+- Add pre-deployment tests
 
 ---
 
