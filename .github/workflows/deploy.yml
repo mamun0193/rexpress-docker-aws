@@ -34,19 +34,54 @@ jobs:
           aws ecr get-login-password --region $AWS_REGION \
           | docker login --username AWS --password-stdin $ECR_REGISTRY
 
+      - name: Set image tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            IMAGE_TAG="${GITHUB_REF#refs/tags/}"
+          else
+            IMAGE_TAG="${GITHUB_SHA::7}"
+          fi
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "Using IMAGE_TAG=$IMAGE_TAG"
+
       - name: Build & Push Backend Image
         run: |
-          docker build -t $BACKEND_REPO:latest ./backend
-          docker tag $BACKEND_REPO:latest $ECR_REGISTRY/$BACKEND_REPO:latest
+          docker build -t $BACKEND_REPO:$IMAGE_TAG -t $BACKEND_REPO:latest ./backend
+          docker tag $BACKEND_REPO:$IMAGE_TAG $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG
+          docker tag $BACKEND_REPO:$IMAGE_TAG $ECR_REGISTRY/$BACKEND_REPO:latest
+          docker push $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG
           docker push $ECR_REGISTRY/$BACKEND_REPO:latest
-          echo "Backend image pushed: $ECR_REGISTRY/$BACKEND_REPO:latest"
+          echo "Backend images pushed: $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG and latest"
 
       - name: Build & Push Frontend Image
         run: |
-          docker build -t $FRONTEND_REPO:latest ./frontend
-          docker tag $FRONTEND_REPO:latest $ECR_REGISTRY/$FRONTEND_REPO:latest
+          docker build -t $FRONTEND_REPO:$IMAGE_TAG -t $FRONTEND_REPO:latest ./frontend
+          docker tag $FRONTEND_REPO:$IMAGE_TAG $ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG
+          docker tag $FRONTEND_REPO:$IMAGE_TAG $ECR_REGISTRY/$FRONTEND_REPO:latest
+          docker push $ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG
           docker push $ECR_REGISTRY/$FRONTEND_REPO:latest
-          echo "Frontend image pushed: $ECR_REGISTRY/$FRONTEND_REPO:latest"
+          echo "Frontend images pushed: $ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG and latest"
+
+      - name: Pre-deployment smoke tests
+        run: |
+          set -e
+          echo "Running pre-deployment smoke tests using image tag $IMAGE_TAG"
+          docker pull $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG
+          docker pull $ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG
+
+          docker run -d --name smoke-backend -p 5000:5000 $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG
+          sleep 5
+          curl --retry 5 --retry-delay 2 -f http://localhost:5000/health
+          echo "Backend smoke test passed"
+
+          docker run -d --name smoke-frontend -p 8080:80 $ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG
+          sleep 5
+          curl --retry 5 --retry-delay 2 -f http://localhost:8080
+          echo "Frontend smoke test passed"
+
+          docker stop smoke-backend smoke-frontend || true
+          docker rm smoke-backend smoke-frontend || true
+          echo "Smoke tests completed"
 
       - name: Update Backend ECS Service
         run: |
