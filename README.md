@@ -9,16 +9,18 @@
 ## 🎯 What is Rexpress?
 
 A full-stack web application showcasing production-grade cloud deployment on AWS. Features:
+
 - **Frontend**: React SPA with Vite + Nginx reverse proxy
 - **Backend**: Express.js REST API with health checks
 - **Infrastructure**: AWS ECS Fargate (serverless containers)
 - **Security**: Network isolation with Security Groups
+- **Caching**: Redis 7 (Local Docker & AWS ElastiCache)
 - **CI/CD**: Automated deployments via GitHub Actions
 - **Monitoring**: CloudWatch logging & health checks
 
 ## 📁 Project Structure
 
-```
+```bash
 rexpress/
 ├── backend/              # Express.js API
 │   ├── Dockerfile
@@ -33,6 +35,7 @@ rexpress/
 │   ├── DOCKER_GUIDE.md
 │   ├── DEPLOYMENT_GUIDE.md
 │   ├── ARCHITECTURE.md
+│   ├── REDIS_INTEGRATION.md
 │   ├── TROUBLESHOOTING.md
 │   └── CI_CD_GUIDE.md
 └── .github/workflows/deploy.yml
@@ -40,13 +43,18 @@ rexpress/
 
 ## 🏗️ Architecture Overview
 
-```
+```bash
 Internet Users → Frontend ALB → Frontend Container (React + Nginx)
                                     ↓ /api/* requests
                               Backend ALB (Secured) → Backend Container (Express)
+                                                            ↓ Cache/DB lookups
+                              ElastiCache Redis (Private VPC)
 ```
 
-**Security**: Backend is network-isolated—only the frontend can access it via AWS Security Groups.
+**Security**:
+
+- Backend is network-isolated—only the frontend can access it via AWS Security Groups.
+- Redis is in private subnets—only backend ECS tasks can access it.
 
 ## 🚀 Quick Start
 
@@ -60,6 +68,17 @@ cd backend && npm install && npm start  # http://localhost:5000
 cd frontend && npm install && npm run dev  # http://localhost:5173
 ```
 
+### Docker Compose (with Redis)
+
+```bash
+# Start all services (frontend, backend, redis)
+docker-compose up -d
+
+# Test: http://localhost (frontend)
+# API: curl http://localhost:5000/api/products
+# Logs: docker-compose logs -f backend
+```
+
 ### Docker Local Testing
 
 ```bash
@@ -67,15 +86,18 @@ docker build -t rexpress-backend ./backend
 docker build -t rexpress-frontend ./frontend
 
 docker network create rexpress-network
-docker run -d --name backend --network rexpress-network -p 5000:5000 rexpress-backend
+docker run -d --name redis --network rexpress-network -p 6379:6379 redis:7-alpine
+docker run -d --name backend --network rexpress-network -p 5000:5000 -e REDIS_ENABLED=true -e REDIS_HOST=redis rexpress-backend
 docker run -d --name frontend --network rexpress-network -p 80:80 rexpress-frontend
 
-# Test: http://localhost (frontend), http://localhost:5000/api/users (backend)
+# Test: http://localhost (frontend), http://localhost:5000/api/products (backend)
+# First call: source = "db", Second call: source = "cache"
 ```
 
 ## ☁️ AWS Deployment Overview
 
 **High-level steps**:
+
 1. Build Docker images & push to AWS ECR
 2. Create ECS cluster with Fargate
 3. Set up Application Load Balancers (frontend + backend)
@@ -91,6 +113,7 @@ For complete step-by-step instructions, see [docs/DEPLOYMENT_GUIDE.md](docs/DEPL
 ## 🔄 CI/CD Pipeline
 
 Every push to `main` triggers automated deployment:
+
 - ✅ Builds Docker images
 - ✅ Pushes to AWS ECR
 - ✅ Updates ECS services
@@ -117,6 +140,7 @@ See [docs/CI_CD_GUIDE.md](docs/CI_CD_GUIDE.md) for complete setup.
 | [DOCKER_GUIDE.md](docs/DOCKER_GUIDE.md) | Docker setup, building images, local testing |
 | [DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | Complete AWS deployment walkthrough |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, security model, decisions |
+| [REDIS_INTEGRATION.md](docs/REDIS_INTEGRATION.md) | Redis caching: local Docker & AWS ElastiCache |
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues & debugging |
 | [CI_CD_GUIDE.md](docs/CI_CD_GUIDE.md) | GitHub Actions setup & improvements |
 
@@ -124,8 +148,9 @@ See [docs/CI_CD_GUIDE.md](docs/CI_CD_GUIDE.md) for complete setup.
 
 **Frontend**: React 18, Vite, Nginx  
 **Backend**: Node.js 18, Express.js  
-**Infrastructure**: AWS ECS Fargate, ECR, ALB, CloudWatch  
-**DevOps**: Docker, GitHub Actions, AWS CLI
+**Caching**: Redis 7 (Local Docker & AWS ElastiCache)  
+**Infrastructure**: AWS ECS Fargate, ECR, ALB, ElastiCache, CloudWatch  
+**DevOps**: Docker, Docker Compose, GitHub Actions, AWS CLI
 
 ## ❓ Quick Troubleshooting
 
@@ -161,13 +186,14 @@ See [docs/DEPLOYMENT_GUIDE.md#cleanup](docs/DEPLOYMENT_GUIDE.md#cleanup-stop-aws
 
 ## 🔮 Future Enhancements
 
-- [ ] Multi-region deployment
+- [x] Redis caching layer (Local Docker & AWS ElastiCache)
 - [ ] Database integration (RDS)
-- [ ] Redis caching layer
 - [ ] JWT authentication
 - [ ] Infrastructure as Code (Terraform)
 - [ ] Auto-scaling policies
 - [ ] WAF for DDoS protection
+- [ ] Multi-region deployment
+- [ ] Redis Cluster mode for high availability
 
 ## 📖 Resources
 

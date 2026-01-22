@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: rexpress-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    container_name: rexpress-backend
+    ports:
+      - "5000:5000"
+    environment:
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
