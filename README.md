@@ -141,6 +141,7 @@ See [docs/CI_CD_GUIDE.md](docs/CI_CD_GUIDE.md) for complete setup.
 | [DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) | Complete AWS deployment walkthrough |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, security model, decisions |
 | [REDIS_INTEGRATION.md](docs/REDIS_INTEGRATION.md) | Redis caching: local Docker & AWS ElastiCache |
+| [OBSERVABILITY_AND_DEBUGGING.md](docs/OBSERVABILITY_AND_DEBUGGING.md) | Logging, monitoring, alarms, troubleshooting in production |
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common issues & debugging |
 | [CI_CD_GUIDE.md](docs/CI_CD_GUIDE.md) | GitHub Actions setup & improvements |
 
